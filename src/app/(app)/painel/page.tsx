@@ -89,7 +89,7 @@ export default async function PainelPage({
           <div className="flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-accent" />
             <p className="text-sm font-medium">
-              {draftCount} notinha{draftCount !== 1 && "s"} lida{draftCount !== 1 && "s"} pela IA
+              {draftCount} notinha{draftCount !== 1 ? "s" : ""} lida{draftCount !== 1 ? "s" : ""} pela IA
               aguardando revisão
             </p>
           </div>
