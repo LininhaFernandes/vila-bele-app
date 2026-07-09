@@ -1,13 +1,28 @@
 import { type NextRequest } from "next/server";
-// import { updateSession } from "@/lib/supabase/middleware";
 
-export async function middleware(request: NextRequest) {
-  // Middleware temporariamente desabilitado para debug
-  return;
+export function middleware(request: NextRequest) {
+  const token = request.cookies.get("token")?.value;
+  const pathname = request.nextUrl.pathname;
+
+  // Rotas públicas (sem autenticação necessária)
+  const publicRoutes = ["/login", "/"];
+
+  // Rotas protegidas
+  const protectedRoutes = ["/painel", "/despesas", "/reembolsos", "/revisao", "/usuarios"];
+
+  // Se está tentando acessar rota protegida sem token
+  if (protectedRoutes.some(route => pathname.startsWith(route)) && !token) {
+    return Response.redirect(new URL("/login", request.url));
+  }
+
+  // Se está no login e tem token, redireciona para painel
+  if (pathname === "/login" && token) {
+    return Response.redirect(new URL("/painel", request.url));
+  }
+
+  return undefined;
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/((?!_next|favicon.ico).*)", "/"],
 };
