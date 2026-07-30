@@ -1,22 +1,20 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Loader2, Mail, Lock } from "lucide-react";
-import { toast } from "sonner";
 
 export function LoginForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const button = e.currentTarget.querySelector("button") as HTMLButtonElement;
+
+    button.disabled = true;
+    button.textContent = "Entrando...";
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -28,70 +26,53 @@ export function LoginForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        toast.error(data.error || "Erro ao fazer login");
-        setLoading(false);
+        alert(data.error || "Email ou senha incorretos");
+        button.disabled = false;
+        button.textContent = "Entrar";
         return;
       }
 
-      // Salva o token no localStorage
       localStorage.setItem("token", data.token);
-
-      toast.success("Login realizado com sucesso!");
       router.push("/painel");
-    } catch (error) {
-      toast.error("Erro ao conectar com o servidor");
-      setLoading(false);
+    } catch (err) {
+      alert("Erro ao conectar com o servidor");
+      button.disabled = false;
+      button.textContent = "Entrar";
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Seu e-mail</Label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            id="email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            placeholder="voce@exemplo.com"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        <label htmlFor="email">E-mail</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="seu@email.com"
+          required
+          className="border rounded px-3 py-2"
+        />
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="password">Senha</Label>
-        <div className="relative">
-          <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        <label htmlFor="password">Senha</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          placeholder="Sua senha"
+          required
+          className="border rounded px-3 py-2"
+        />
       </div>
 
-      <Button type="submit" disabled={loading} className="w-full">
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Mail className="h-4 w-4" />
-        )}
-        {loading ? "Entrando..." : "Entrar"}
-      </Button>
+      <button type="submit" className="bg-blue-600 text-white py-2 rounded">
+        Entrar
+      </button>
 
-      <p className="text-muted-foreground text-center text-xs">
-        Sem senha? Usar email e senha simples.
+      <p className="text-sm text-gray-600 text-center">
+        Use email e senha para acessar
       </p>
     </form>
   );

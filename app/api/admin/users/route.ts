@@ -1,23 +1,67 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createUserAsAdmin, getAllUsers } from "@/lib/auth";
-import { verifyToken } from "@/lib/auth";
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyToken, getAllUsers, createUserAsAdmin } from '@/lib/auth';
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get("token")?.value;
+    const token = request.cookies.get('token')?.value || request.headers.get('authorization')?.replace('Bearer ', '');
 
     if (!token) {
       return NextResponse.json(
-        { error: "Não autorizado" },
+        { error: 'Token obrigatório' },
         { status: 401 }
       );
     }
 
     const decoded = verifyToken(token);
 
-    if (!decoded || decoded.role !== "admin") {
+    if (!decoded) {
       return NextResponse.json(
-        { error: "Acesso negado" },
+        { error: 'Token inválido' },
+        { status: 401 }
+      );
+    }
+
+    if (decoded.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
+        { status: 403 }
+      );
+    }
+
+    const users = await getAllUsers();
+    return NextResponse.json(users, { status: 200 });
+  } catch (error) {
+    console.error('Get users error:', error);
+    return NextResponse.json(
+      { error: 'Erro ao buscar usuários' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const token = request.cookies.get('token')?.value || request.headers.get('authorization')?.replace('Bearer ', '');
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Token obrigatório' },
+        { status: 401 }
+      );
+    }
+
+    const decoded = verifyToken(token);
+
+    if (!decoded) {
+      return NextResponse.json(
+        { error: 'Token inválido' },
+        { status: 401 }
+      );
+    }
+
+    if (decoded.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
         { status: 403 }
       );
     }
@@ -25,67 +69,34 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password, full_name, role } = body;
 
-    if (!email || !password || !full_name) {
+    if (!email || !password || !full_name || !role) {
       return NextResponse.json(
-        { error: "Email, senha e nome são obrigatórios" },
+        { error: 'Email, senha, nome completo e função são obrigatórios' },
         { status: 400 }
       );
     }
 
-    const newUser = await createUserAsAdmin(email, password, full_name, role || "user");
-
-    if (!newUser) {
+    if (password.length < 6) {
       return NextResponse.json(
-        { error: "Erro ao criar usuário" },
-        { status: 500 }
+        { error: 'Senha deve ter no mínimo 6 caracteres' },
+        { status: 400 }
       );
     }
 
-    return NextResponse.json(newUser);
-  } catch (error: any) {
-    console.error("Create user error:", error);
+    const user = await createUserAsAdmin(email, password, full_name, role as 'admin' | 'user');
 
-    if (error.code === "23505") {
+    if (!user) {
       return NextResponse.json(
-        { error: "Este email já está cadastrado" },
+        { error: 'Email já existe' },
         { status: 409 }
       );
     }
 
-    return NextResponse.json(
-      { error: "Erro ao criar usuário" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    const token = request.cookies.get("token")?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { error: "Não autorizado" },
-        { status: 401 }
-      );
-    }
-
-    const decoded = verifyToken(token);
-
-    if (!decoded || decoded.role !== "admin") {
-      return NextResponse.json(
-        { error: "Acesso negado" },
-        { status: 403 }
-      );
-    }
-
-    const users = await getAllUsers();
-
-    return NextResponse.json(users);
+    return NextResponse.json(user, { status: 200 });
   } catch (error) {
-    console.error("Get users error:", error);
+    console.error('Create user error:', error);
     return NextResponse.json(
-      { error: "Erro ao buscar usuários" },
+      { error: 'Erro ao criar usuário' },
       { status: 500 }
     );
   }

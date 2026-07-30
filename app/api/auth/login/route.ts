@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { loginUser } from "@/lib/auth";
+import { NextRequest, NextResponse } from 'next/server';
+import { loginUser } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json(
-        { error: "Email e senha são obrigatórios" },
+        { error: 'Email e senha são obrigatórios' },
         { status: 400 }
       );
     }
@@ -17,29 +17,29 @@ export async function POST(request: NextRequest) {
 
     if (!result) {
       return NextResponse.json(
-        { error: "Email ou senha inválidos" },
+        { error: 'Email ou senha incorretos' },
         { status: 401 }
       );
     }
 
-    const response = NextResponse.json({
-      user: result.user,
-      token: result.token,
-    });
+    const response = NextResponse.json(
+      { user: result.user, token: result.token },
+      { status: 200 }
+    );
 
-    // Salva token em cookie httpOnly
-    response.cookies.set("token", result.token, {
+    // Salvar token em cookie
+    response.cookies.set('token', result.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 dias
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7 // 7 dias
     });
 
     return response;
   } catch (error) {
-    console.error("Login error:", error);
+    console.error('Login error:', error);
     return NextResponse.json(
-      { error: "Erro ao fazer login" },
+      { error: 'Erro ao fazer login' },
       { status: 500 }
     );
   }

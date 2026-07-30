@@ -1,123 +1,162 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Users, Settings, FileText } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { requireProfile } from "@/lib/auth";
+import {
+  fetchExpenses,
+  fetchPendingReimbursementTotal,
+  countDraftExpenses,
+} from "@/lib/data/expenses";
+import { getSignedReceiptUrls } from "@/lib/data/receipts";
+import { resolvePeriod, type PeriodPreset } from "@/lib/period";
+import { StatCard } from "@/components/stat-card";
+import { ExpenseListItem } from "@/components/expense-list-item";
+import { PeriodSelector } from "./period-selector";
+import { CategoryPieChart } from "@/components/charts/category-pie-chart";
+import { MonthlyBarChart } from "@/components/charts/monthly-bar-chart";
+import { Wallet, Receipt, HandCoins, ArrowRight, Sparkles } from "lucide-react";
 
-interface User {
-  id: number;
-  email: string;
-  full_name: string;
-  role: "admin" | "user";
-  created_at: string;
+function formatCurrency(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-export default function PainelPage() {
-  const [user, setUser] = useState<User | null>(null);
+export default async function PainelPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const sp = await searchParams;
+  // Temporariamente desabilitado para debug
+  // const { profile } = await requireProfile();
+  const profile = {
+    id: "temp",
+    full_name: "Usuário Teste",
+    role: "admin",
+  } as any;
 
-  useEffect(() => {
-    async function loadProfile() {
-      try {
-        const response = await fetch("/api/auth/profile");
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data);
-        }
-      } catch (error) {
-        console.error("Erro ao carregar perfil:", error);
-      }
-    }
+  const preset = (sp.periodo as PeriodPreset) ?? "mes";
+  const period = resolvePeriod(preset, sp.de, sp.ate);
 
-    loadProfile();
-  }, []);
+  // Dados fake para teste
+  const expenses: any[] = [];
+  const pendingTotal = 0;
+  const draftCount = 0;
 
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
-      </div>
-    );
+  const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+
+  const byCategory = new Map<string, number>();
+  for (const e of expenses) {
+    const key = e.category?.name ?? "Outros";
+    byCategory.set(key, (byCategory.get(key) ?? 0) + Number(e.amount));
   }
+  const categoryData = [...byCategory.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
 
-  const isAdmin = user.role === "admin";
+  const byMonth = new Map<string, number>();
+  for (const e of expenses) {
+    const key = e.expense_date.slice(0, 7);
+    byMonth.set(key, (byMonth.get(key) ?? 0) + Number(e.amount));
+  }
+  const monthlyData = [...byMonth.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => ({
+      month: format(new Date(key + "-02"), "MMM/yy", { locale: ptBR }),
+      total: value,
+    }));
+
+  const recent = expenses.slice(0, 6);
+  const receiptPaths = recent.map((e) => e.receipt_url).filter((p): p is string => !!p);
+  const thumbnails = await getSignedReceiptUrls(receiptPaths);
 
   return (
-    <div className="space-y-8">
-      {/* Greeting */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Bem-vindo, {user.full_name}</h1>
-        <p className="text-muted-foreground mt-2">
-          {isAdmin
-            ? "Você está logado como administrador"
-            : "Sistema de controle de despesas do sítio Vila Bele"}
-        </p>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Olá, {profile.full_name.split(" ")[0]}
+          </h1>
+          <p className="text-muted-foreground text-sm capitalize">{period.label}</p>
+        </div>
+        <PeriodSelector preset={preset} />
       </div>
 
-      {/* Quick Links */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Seu Perfil</p>
-              <h3 className="mt-2 text-lg font-semibold">{user.email}</h3>
-            </div>
-            <Settings className="h-5 w-5 text-muted-foreground" />
+      {draftCount > 0 && (
+        <Link
+          href="/revisao"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent/10 p-4 transition hover:bg-accent/15"
+        >
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-5 w-5 text-accent" />
+            <p className="text-sm font-medium">
+              {draftCount} notinha{draftCount > 1 ? "s" : ""} lida{draftCount > 1 ? "s" : ""} pela IA
+              aguardando revisão
+            </p>
           </div>
-          <Link href="/perfil">
-            <Button variant="outline" className="mt-4 w-full">
-              Gerenciar Perfil
-            </Button>
-          </Link>
-        </Card>
+          <ArrowRight className="h-4 w-4 text-accent" />
+        </Link>
+      )}
 
-        <Card className="p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Data de Entrada</p>
-              <h3 className="mt-2 text-lg font-semibold">
-                {new Date(user.created_at).toLocaleDateString("pt-BR")}
-              </h3>
-            </div>
-            <FileText className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <p className="mt-4 text-xs text-muted-foreground">
-            Membro desde {new Date(user.created_at).toLocaleDateString("pt-BR", {
-              year: "numeric",
-              month: "long",
-            })}
-          </p>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Total no período" value={formatCurrency(total)} icon={Wallet} tone="primary" />
+        <StatCard
+          label="Lançamentos no período"
+          value={String(expenses.length)}
+          icon={Receipt}
+        />
+        <StatCard
+          label="Pendente de reembolso"
+          value={formatCurrency(pendingTotal)}
+          icon={HandCoins}
+          tone="accent"
+          hint="Total que ainda precisa ser devolvido"
+        />
+      </div>
 
-        {isAdmin && (
-          <Card className="p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Administrador</p>
-                <h3 className="mt-2 text-lg font-semibold">Gerenciar Usuários</h3>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="mb-2 font-medium">Por categoria</p>
+          <CategoryPieChart data={categoryData} />
+          <div className="mt-2 flex flex-col gap-1.5">
+            {categoryData.slice(0, 5).map((c) => (
+              <div key={c.name} className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{c.name}</span>
+                <span className="font-medium tabular-nums">{formatCurrency(c.value)}</span>
               </div>
-              <Users className="h-5 w-5 text-primary" />
-            </div>
-            <Link href="/admin/usuarios">
-              <Button variant="outline" className="mt-4 w-full">
-                Ir para Admin
-              </Button>
-            </Link>
-          </Card>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="mb-2 font-medium">Evolução mensal</p>
+          <MonthlyBarChart data={monthlyData} />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <p className="font-medium">Lançamentos recentes</p>
+          <Link href="/despesas" className="text-primary flex items-center gap-1 text-sm font-medium">
+            Ver todas
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+        {recent.length === 0 ? (
+          <div className="text-muted-foreground rounded-xl border border-dashed p-8 text-center text-sm">
+            Nenhuma despesa neste período ainda.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {recent.map((expense) => (
+              <ExpenseListItem
+                key={expense.id}
+                expense={expense}
+                thumbnailUrl={expense.receipt_url ? thumbnails[expense.receipt_url] : null}
+              />
+            ))}
+          </div>
         )}
       </div>
-
-      {/* Info Box */}
-      <Card className="p-6 bg-muted/30">
-        <h3 className="font-semibold mb-2">Informações do Sistema</h3>
-        <ul className="space-y-2 text-sm text-muted-foreground">
-          <li>• Seu token de autenticação expira em 7 dias</li>
-          <li>• Você pode gerenciar sua senha na página de perfil</li>
-          {isAdmin && <li>• Como administrador, você pode criar, listar e resetar senhas de usuários</li>}
-          <li>• Clique em "Sair" no menu superior para fazer logout</li>
-        </ul>
-      </Card>
     </div>
   );
 }

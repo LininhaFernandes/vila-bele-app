@@ -1,267 +1,198 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface User {
   id: number;
   email: string;
   full_name: string;
-  role: "admin" | "user";
+  role: string;
   created_at: string;
 }
 
 export default function PerfilPage() {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-
-  const [formData, setFormData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
+  const [changing, setChanging] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
-    async function loadProfile() {
-      try {
-        const response = await fetch("/api/auth/profile");
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data);
-        }
-      } catch (error) {
-        console.error("Erro ao carregar perfil:", error);
-        toast.error("Erro ao carregar perfil");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadProfile();
+    fetchProfile();
   }, []);
+
+  async function fetchProfile() {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const response = await fetch("/api/auth/profile", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error("Falha ao buscar perfil");
+      }
+
+      const data = await response.json();
+      setUser(data);
+    } catch (error) {
+      toast.error("Erro ao carregar perfil");
+      router.push("/login");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
 
-    if (formData.newPassword !== formData.confirmPassword) {
-      toast.error("As senhas não conferem");
-      setSubmitting(false);
+    if (newPassword !== confirmPassword) {
+      toast.error("Senhas não conferem");
       return;
     }
 
-    if (formData.newPassword.length < 6) {
-      toast.error("A nova senha deve ter pelo menos 6 caracteres");
-      setSubmitting(false);
+    if (newPassword.length < 6) {
+      toast.error("Senha deve ter no mínimo 6 caracteres");
       return;
     }
 
+    setChanging(true);
     try {
+      const token = localStorage.getItem("token");
       const response = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          currentPassword: formData.currentPassword,
-          newPassword: formData.newPassword,
-        }),
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
         toast.error(data.error || "Erro ao alterar senha");
-        setSubmitting(false);
         return;
       }
 
       toast.success("Senha alterada com sucesso!");
-      setFormData({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
     } catch (error) {
-      console.error("Erro ao alterar senha:", error);
-      toast.error("Erro ao conectar com o servidor");
+      toast.error("Erro ao alterar senha");
     } finally {
-      setSubmitting(false);
+      setChanging(false);
     }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
   if (!user) {
-    return (
-      <div className="text-center">
-        <p className="text-muted-foreground">Erro ao carregar perfil</p>
-      </div>
-    );
+    return <div className="p-4 text-center">Usuário não encontrado</div>;
   }
 
   return (
-    <div className="space-y-8">
-      {/* Page Title */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Seu Perfil</h1>
-        <p className="text-muted-foreground mt-2">Gerencie suas informações pessoais</p>
+    <div className="flex flex-col gap-6 p-4 pb-24 sm:pb-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Perfil</h1>
       </div>
 
-      <div className="grid gap-6 max-w-2xl">
-        {/* User Information */}
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Informações Pessoais</h2>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Nome Completo</Label>
-              <Input
-                id="name"
-                type="text"
-                value={user.full_name}
-                disabled
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                value={user.email}
-                disabled
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="role">Função</Label>
-              <Input
-                id="role"
-                type="text"
-                value={user.role === "admin" ? "Administrador" : "Usuário"}
-                disabled
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="created">Membro desde</Label>
-              <Input
-                id="created"
-                type="text"
-                value={new Date(user.created_at).toLocaleDateString("pt-BR", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-                disabled
-                className="mt-2"
-              />
-            </div>
+      {/* Informações do Usuário */}
+      <Card className="p-6">
+        <h2 className="mb-4 text-lg font-semibold">Informações</h2>
+        <div className="space-y-4">
+          <div>
+            <Label className="text-muted-foreground">Nome Completo</Label>
+            <p className="mt-1">{user.full_name}</p>
           </div>
-        </Card>
+          <div>
+            <Label className="text-muted-foreground">E-mail</Label>
+            <p className="mt-1">{user.email}</p>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Função</Label>
+            <p className="mt-1 capitalize">
+              {user.role === "admin" ? "Administrador" : "Usuário"}
+            </p>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Data de Cadastro</Label>
+            <p className="mt-1">
+              {new Date(user.created_at).toLocaleDateString("pt-BR")}
+            </p>
+          </div>
+        </div>
+      </Card>
 
-        {/* Change Password */}
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Lock className="h-5 w-5" />
-            Alterar Senha
-          </h2>
-
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div>
-              <Label htmlFor="currentPassword">Senha Atual</Label>
-              <Input
-                id="currentPassword"
-                type="password"
-                placeholder="Digite sua senha atual"
-                value={formData.currentPassword}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    currentPassword: e.target.value,
-                  })
-                }
-                required
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="newPassword">Nova Senha</Label>
-              <Input
-                id="newPassword"
-                type="password"
-                placeholder="Digite sua nova senha (mínimo 6 caracteres)"
-                value={formData.newPassword}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    newPassword: e.target.value,
-                  })
-                }
-                required
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Confirme sua nova senha"
-                value={formData.confirmPassword}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    confirmPassword: e.target.value,
-                  })
-                }
-                required
-                className="mt-2"
-              />
-            </div>
-
-            <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Alterando...
-                </>
-              ) : (
-                "Alterar Senha"
-              )}
-            </Button>
-          </form>
-        </Card>
-
-        {/* Security Info */}
-        <Card className="p-6 bg-muted/30">
-          <h3 className="font-semibold mb-2">Dicas de Segurança</h3>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Use uma senha forte com pelo menos 6 caracteres</li>
-            <li>• Não compartilhe sua senha com outras pessoas</li>
-            <li>• Altere sua senha regularmente</li>
-            <li>• Se suspeitar de acesso não autorizado, mude sua senha imediatamente</li>
-          </ul>
-        </Card>
-      </div>
+      {/* Alterar Senha */}
+      <Card className="p-6">
+        <h2 className="mb-4 text-lg font-semibold">Alterar Senha</h2>
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div>
+            <Label htmlFor="current-password">Senha Atual</Label>
+            <Input
+              id="current-password"
+              type="password"
+              placeholder="Sua senha atual"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+              disabled={changing}
+            />
+          </div>
+          <div>
+            <Label htmlFor="new-password">Nova Senha</Label>
+            <Input
+              id="new-password"
+              type="password"
+              placeholder="Sua nova senha"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              disabled={changing}
+            />
+          </div>
+          <div>
+            <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              placeholder="Confirme sua nova senha"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              disabled={changing}
+            />
+          </div>
+          <Button type="submit" disabled={changing} className="w-full gap-2">
+            {changing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Alterar Senha"
+            )}
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 }

@@ -1,15 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyToken, getUserById } from "@/lib/auth";
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyToken, getUserById } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get("authorization")?.split(" ")[1] ||
-                  request.cookies.get("token")?.value ||
-                  request.nextUrl.searchParams.get("token");
+    const token = request.cookies.get('token')?.value || request.headers.get('authorization')?.replace('Bearer ', '');
 
     if (!token) {
       return NextResponse.json(
-        { error: "Token não fornecido" },
+        { error: 'Token obrigatório' },
         { status: 401 }
       );
     }
@@ -18,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     if (!decoded) {
       return NextResponse.json(
-        { error: "Token inválido ou expirado" },
+        { error: 'Token inválido' },
         { status: 401 }
       );
     }
@@ -27,16 +25,16 @@ export async function GET(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { error: "Usuário não encontrado" },
+        { error: 'Usuário não encontrado' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(user);
+    return NextResponse.json(user, { status: 200 });
   } catch (error) {
-    console.error("Profile error:", error);
+    console.error('Profile error:', error);
     return NextResponse.json(
-      { error: "Erro ao buscar perfil" },
+      { error: 'Erro ao buscar perfil' },
       { status: 500 }
     );
   }

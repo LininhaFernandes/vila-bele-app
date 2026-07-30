@@ -1,14 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyToken, changePassword } from "@/lib/auth";
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyToken, changePassword } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.headers.get("authorization")?.split(" ")[1] ||
-                  request.cookies.get("token")?.value;
+    const token = request.cookies.get('token')?.value || request.headers.get('authorization')?.replace('Bearer ', '');
 
     if (!token) {
       return NextResponse.json(
-        { error: "Não autorizado" },
+        { error: 'Token obrigatório' },
         { status: 401 }
       );
     }
@@ -17,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     if (!decoded) {
       return NextResponse.json(
-        { error: "Token inválido ou expirado" },
+        { error: 'Token inválido' },
         { status: 401 }
       );
     }
@@ -27,14 +26,14 @@ export async function POST(request: NextRequest) {
 
     if (!currentPassword || !newPassword) {
       return NextResponse.json(
-        { error: "Senha atual e nova senha são obrigatórias" },
+        { error: 'Senha atual e nova senha são obrigatórias' },
         { status: 400 }
       );
     }
 
     if (newPassword.length < 6) {
       return NextResponse.json(
-        { error: "A nova senha deve ter pelo menos 6 caracteres" },
+        { error: 'Nova senha deve ter no mínimo 6 caracteres' },
         { status: 400 }
       );
     }
@@ -43,16 +42,19 @@ export async function POST(request: NextRequest) {
 
     if (!success) {
       return NextResponse.json(
-        { error: "Senha atual incorreta" },
+        { error: 'Senha atual incorreta' },
         { status: 401 }
       );
     }
 
-    return NextResponse.json({ message: "Senha alterada com sucesso" });
-  } catch (error) {
-    console.error("Change password error:", error);
     return NextResponse.json(
-      { error: "Erro ao alterar senha" },
+      { message: 'Senha alterada com sucesso' },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Change password error:', error);
+    return NextResponse.json(
+      { error: 'Erro ao alterar senha' },
       { status: 500 }
     );
   }

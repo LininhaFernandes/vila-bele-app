@@ -1,54 +1,81 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2 } from "lucide-react";
 
 interface User {
   id: number;
   email: string;
   full_name: string;
-  role: "admin" | "user";
+  role: string;
   created_at: string;
 }
 
 export default function AdminUsuariosPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    full_name: "",
-    role: "user" as "admin" | "user",
-  });
+  // Form states
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState("user");
+
+  // Reset password states
+  const [resetPassword, setResetPassword] = useState("");
+  const [confirmResetPassword, setConfirmResetPassword] = useState("");
 
   useEffect(() => {
-    loadUsers();
+    fetchUsers();
   }, []);
 
-  async function loadUsers() {
+  async function fetchUsers() {
     try {
-      setLoading(true);
+      const token = localStorage.getItem("token");
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
       const response = await fetch("/api/admin/users", {
-        headers: {
-          "Cookie": `token=${localStorage.getItem("token")}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
-        toast.error("Erro ao carregar usuários");
-        return;
+        throw new Error("Falha ao buscar usuários");
       }
 
       const data = await response.json();
       setUsers(data);
     } catch (error) {
-      toast.error("Erro ao conectar com o servidor");
+      toast.error("Erro ao carregar usuários");
+      router.push("/login");
     } finally {
       setLoading(false);
     }
@@ -56,166 +83,292 @@ export default function AdminUsuariosPage() {
 
   async function handleCreateUser(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
 
+    if (!email || !password || !fullName) {
+      toast.error("Todos os campos são obrigatórios");
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error("Senha deve ter no mínimo 6 caracteres");
+      return;
+    }
+
+    setCreating(true);
     try {
+      const token = localStorage.getItem("token");
       const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Cookie": `token=${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          email,
+          password,
+          full_name: fullName,
+          role,
+        }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.error || "Erro ao criar usuário");
-        setSubmitting(false);
+        toast.error(data.error || "Erro ao criar usuário");
         return;
       }
 
       toast.success("Usuário criado com sucesso!");
-      setFormData({ email: "", password: "", full_name: "", role: "user" });
-      await loadUsers();
+      setEmail("");
+      setPassword("");
+      setFullName("");
+      setRole("user");
+      await fetchUsers();
     } catch (error) {
-      toast.error("Erro ao conectar com o servidor");
+      toast.error("Erro ao criar usuário");
     } finally {
-      setSubmitting(false);
+      setCreating(false);
     }
   }
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Gerenciar Usuários</h1>
-        <p className="text-muted-foreground text-sm">Crie e gerencie usuários do sistema</p>
+  async function handleResetPassword(userId: number) {
+    if (!resetPassword || !confirmResetPassword) {
+      toast.error("Preencha a nova senha");
+      return;
+    }
+
+    if (resetPassword !== confirmResetPassword) {
+      toast.error("Senhas não conferem");
+      return;
+    }
+
+    if (resetPassword.length < 6) {
+      toast.error("Senha deve ter no mínimo 6 caracteres");
+      return;
+    }
+
+    setResetting(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ newPassword: resetPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || "Erro ao resetar senha");
+        return;
+      }
+
+      toast.success("Senha resetada com sucesso!");
+      setSelectedUserId(null);
+      setResetPassword("");
+      setConfirmResetPassword("");
+    } catch (error) {
+      toast.error("Erro ao resetar senha");
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
+    );
+  }
 
-      {/* Formulário de Criação */}
-      <div className="rounded-2xl border bg-card p-6">
-        <h2 className="mb-4 font-semibold">Criar Novo Usuário</h2>
+  return (
+    <div className="flex flex-col gap-6 p-4 pb-24 sm:pb-4">
+      <h1 className="text-2xl font-bold">Gerenciar Usuários</h1>
 
-        <form onSubmit={handleCreateUser} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="usuario@example.com"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="full_name">Nome Completo</Label>
-              <Input
-                id="full_name"
-                placeholder="João Silva"
-                value={formData.full_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, full_name: e.target.value })
-                }
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="role">Função</Label>
-              <select
-                id="role"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background"
-                value={formData.role}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    role: e.target.value as "admin" | "user",
-                  })
-                }
-              >
-                <option value="user">Usuário</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </div>
+      {/* Criar novo usuário */}
+      <Card className="p-6">
+        <h2 className="mb-4 text-lg font-semibold">Criar Novo Usuário</h2>
+        <form onSubmit={handleCreateUser} className="grid gap-4 md:grid-cols-2">
+          <div>
+            <Label htmlFor="email">E-mail</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="usuario@exemplo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={creating}
+              required
+            />
           </div>
-
-          <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-            {submitting ? (
+          <div>
+            <Label htmlFor="full-name">Nome Completo</Label>
+            <Input
+              id="full-name"
+              type="text"
+              placeholder="João Silva"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              disabled={creating}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="password">Senha</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Mínimo 6 caracteres"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={creating}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="role">Função</Label>
+            <select
+              id="role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              disabled={creating}
+              className="w-full px-3 py-2 border rounded-md"
+            >
+              <option value="user">Usuário</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <Button
+            type="submit"
+            disabled={creating}
+            className="md:col-span-2 gap-2"
+          >
+            {creating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Plus className="h-4 w-4" />
+              "Criar Usuário"
             )}
-            {submitting ? "Criando..." : "Criar Usuário"}
           </Button>
         </form>
-      </div>
+      </Card>
 
-      {/* Lista de Usuários */}
-      <div className="rounded-2xl border bg-card p-6">
-        <h2 className="mb-4 font-semibold">Usuários Cadastrados</h2>
+      {/* Lista de usuários */}
+      <Card className="overflow-hidden">
+        <div className="p-6">
+          <h2 className="mb-4 text-lg font-semibold">Usuários Cadastrados</h2>
 
-        {loading ? (
-          <div className="flex items-center justify-center p-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          {users.length === 0 ? (
+            <p className="text-muted-foreground">Nenhum usuário cadastrado</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>E-mail</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Função</TableHead>
+                    <TableHead>Data de Cadastro</TableHead>
+                    <TableHead>Ação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.email}</TableCell>
+                      <TableCell>{user.full_name}</TableCell>
+                      <TableCell>
+                        <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                          {user.role === "admin" ? "Admin" : "Usuário"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(user.created_at).toLocaleDateString("pt-BR")}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedUserId(user.id)}
+                          className="gap-2"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                          Resetar Senha
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Dialog de resetar senha */}
+      <Dialog open={selectedUserId !== null} onOpenChange={(open) => {
+        if (!open) setSelectedUserId(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resetar Senha</DialogTitle>
+            <DialogDescription>
+              Digite a nova senha para {users.find((u) => u.id === selectedUserId)?.email}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="reset-password">Nova Senha</Label>
+              <Input
+                id="reset-password"
+                type="password"
+                placeholder="Nova senha"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                disabled={resetting}
+              />
+            </div>
+            <div>
+              <Label htmlFor="confirm-reset-password">Confirmar Senha</Label>
+              <Input
+                id="confirm-reset-password"
+                type="password"
+                placeholder="Confirme a senha"
+                value={confirmResetPassword}
+                onChange={(e) => setConfirmResetPassword(e.target.value)}
+                disabled={resetting}
+              />
+            </div>
           </div>
-        ) : users.length === 0 ? (
-          <div className="text-muted-foreground rounded-xl border border-dashed p-8 text-center text-sm">
-            Nenhum usuário cadastrado ainda.
+
+          <div className="flex gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSelectedUserId(null)}
+              disabled={resetting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => selectedUserId && handleResetPassword(selectedUserId)}
+              disabled={resetting}
+              className="gap-2"
+            >
+              {resetting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Resetar"
+              )}
+            </Button>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-semibold">E-mail</th>
-                  <th className="text-left py-3 px-4 font-semibold">Nome</th>
-                  <th className="text-left py-3 px-4 font-semibold">Função</th>
-                  <th className="text-left py-3 px-4 font-semibold">Data</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id} className="border-b hover:bg-muted/50">
-                    <td className="py-3 px-4">{user.email}</td>
-                    <td className="py-3 px-4">{user.full_name}</td>
-                    <td className="py-3 px-4">
-                      <span className={`rounded px-2 py-1 text-xs font-medium ${
-                        user.role === "admin"
-                          ? "bg-primary/10 text-primary"
-                          : "bg-muted text-muted-foreground"
-                      }`}>
-                        {user.role === "admin" ? "Admin" : "Usuário"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground">
-                      {new Date(user.created_at).toLocaleDateString("pt-BR")}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
