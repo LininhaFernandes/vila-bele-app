@@ -1,3 +1,4 @@
+import { cookies, headers } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { query } from './db';
@@ -172,13 +173,101 @@ export async function getAllUsers(): Promise<User[]> {
   }
 }
 
-// Legacy Supabase functions - kept for backward compatibility
-export async function requireProfile(): Promise<{ userId: string; email: string; profile: any }> {
-  throw new Error('Supabase auth no longer available. Use custom JWT authentication.');
+// Change password (user changing their own password)
+export async function changePassword(userId: number, currentPassword: string, newPassword: string): Promise<boolean> {
+  try {
+    const result = await query(
+      'SELECT password FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return false;
+    }
+
+    const user = result.rows[0];
+    const passwordMatch = await verifyPassword(currentPassword, user.password);
+
+    if (!passwordMatch) {
+      return false;
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    await query(
+      'UPDATE users SET password = $1 WHERE id = $2',
+      [hashedPassword, userId]
+    );
+
+    return true;
+  } catch (error) {
+    console.error('Change password error:', error);
+    return false;
+  }
 }
 
-export function requireAdmin(profile: any) {
-  if (!profile || profile.role !== 'admin') {
-    throw new Error('Admin access required.');
+// Reset password (admin resetting user password)
+export async function resetUserPassword(userId: number, newPassword: string): Promise<boolean> {
+  try {
+    const hashedPassword = await hashPassword(newPassword);
+
+    const result = await query(
+      'UPDATE users SET password = $1 WHERE id = $2 RETURNING id',
+      [hashedPassword, userId]
+    );
+
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return false;
+  }
+}
+
+// Server-side: Get current user profile (for Server Components)
+export async function requireProfile() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('token')?.value;
+
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      throw new Error('Invalid token');
+    }
+
+    const user = await getUserById(decoded.id);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Map role for compatibility with existing code
+    const roleMap: Record<string, string> = {
+      admin: 'admin',
+      user: 'viewer_approver', // Default role for non-admin users
+    };
+
+    return {
+      userId: String(user.id), // Return as string for compatibility with Supabase IDs
+      profile: {
+        id: String(user.id),
+        email: user.email,
+        name: user.full_name,
+        role: roleMap[user.role] || 'viewer_approver',
+        created_at: user.created_at,
+      },
+    };
+  } catch (error) {
+    console.error('requireProfile error:', error);
+    throw new Error('Unauthorized');
+  }
+}
+
+// Server-side: Require admin role (checks profile object)
+export function requireAdmin(profile: any): void {
+  if (profile.role !== 'admin') {
+    throw new Error('Admin access required');
   }
 }

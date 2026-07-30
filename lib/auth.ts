@@ -171,3 +171,53 @@ export async function getAllUsers(): Promise<User[]> {
     return [];
   }
 }
+
+// Change password (user changing their own password)
+export async function changePassword(userId: number, currentPassword: string, newPassword: string): Promise<boolean> {
+  try {
+    const result = await query(
+      'SELECT password FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return false;
+    }
+
+    const user = result.rows[0];
+    const passwordMatch = await verifyPassword(currentPassword, user.password);
+
+    if (!passwordMatch) {
+      return false;
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    await query(
+      'UPDATE users SET password = $1 WHERE id = $2',
+      [hashedPassword, userId]
+    );
+
+    return true;
+  } catch (error) {
+    console.error('Change password error:', error);
+    return false;
+  }
+}
+
+// Reset password (admin resetting user password)
+export async function resetUserPassword(userId: number, newPassword: string): Promise<boolean> {
+  try {
+    const hashedPassword = await hashPassword(newPassword);
+
+    const result = await query(
+      'UPDATE users SET password = $1 WHERE id = $2 RETURNING id',
+      [hashedPassword, userId]
+    );
+
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return false;
+  }
+}

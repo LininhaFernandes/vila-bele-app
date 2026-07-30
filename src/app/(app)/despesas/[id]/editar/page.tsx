@@ -32,7 +32,7 @@ export default async function EditarDespesaPage({
         expense={expense}
         categories={categories}
         profiles={profiles}
-        currentUserId={userId}
+        currentUserId={String(userId)}
       />
     </div>
   );

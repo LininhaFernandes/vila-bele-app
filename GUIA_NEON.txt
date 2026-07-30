@@ -1,0 +1,197 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                        VILA BELE - GUIA COMPLETO NEON                          ║
+║                    Setup do Banco de Dados em 5 Minutos                        ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+
+┌────────────────────────────────────────────────────────────────────────────────┐
+│ PASSO 1: ACESSAR NEON CONSOLE                                                  │
+└────────────────────────────────────────────────────────────────────────────────┘
+
+1. Abra: https://console.neon.tech
+2. Faça login com sua conta
+3. Selecione o projeto "neondb"
+4. No menu esquerdo, clique em "SQL Editor"
+
+   ┌─────────────────────────────────────────────────┐
+   │ Neon Console                                    │
+   ├─────────────────────────────────────────────────┤
+   │ ☰ Databases                                     │
+   │   └─ neondb (PostgreSQL 16)                    │
+   │ ☰ SQL Editor          ← CLIQUE AQUI            │
+   │ ☰ Roles
+   │ ☰ Extensions
+   │ ☰ Connections
+   └─────────────────────────────────────────────────┘
+
+
+┌────────────────────────────────────────────────────────────────────────────────┐
+│ PASSO 2: COPIAR E COLAR SQL                                                    │
+└────────────────────────────────────────────────────────────────────────────────┘
+
+1. No SQL Editor, você verá uma área de texto branca
+
+   ┌─────────────────────────────────────────────────┐
+   │ SQL Editor - neondb                             │
+   ├─────────────────────────────────────────────────┤
+   │                                                 │
+   │  [Área para colar SQL aqui]                    │
+   │                                                 │
+   │                                                 │
+   ├─────────────────────────────────────────────────┤
+   │                           [Execute] [Format]   │
+   └─────────────────────────────────────────────────┘
+
+2. Cole TODO o conteúdo de "setup-neon.sql":
+   - Clique com botão direito → Colar (Ctrl+V)
+   - Ou arraste o arquivo setup-neon.sql
+
+3. Clique em "Execute" ou aperte Ctrl+Enter
+
+
+┌────────────────────────────────────────────────────────────────────────────────┐
+│ PASSO 3: VERIFICAR EXECUÇÃO                                                    │
+└────────────────────────────────────────────────────────────────────────────────┘
+
+Você deve ver esta mensagem abaixo do editor:
+
+   ┌─────────────────────────────────────────────────┐
+   │ ✓ Query executed successfully                  │
+   ├─────────────────────────────────────────────────┤
+   │ id │ email                  │ full_name     ... │
+   │ ───┼────────────────────────┼─────────────... │
+   │ 1  │ admin@vila-bele.com    │ Administrador... │
+   └─────────────────────────────────────────────────┘
+
+Se ver isso = Sucesso! ✓
+
+Se ver erro "UNIQUE constraint failed":
+   → Significa que o usuário já foi criado
+   → Você pode fazer login agora
+
+
+┌────────────────────────────────────────────────────────────────────────────────┐
+│ PASSO 4: TESTAR LOGIN NA APLICAÇÃO                                             │
+└────────────────────────────────────────────────────────────────────────────────┘
+
+1. Volte para o terminal/IDE
+2. Rode: npm run dev
+3. Abra: http://localhost:3000/login
+
+4. Preencha:
+   Email:  admin@vila-bele.com
+   Senha:  senha123
+
+5. Clique em "Entrar"
+
+   ┌──────────────────────────────────────┐
+   │  Vila Bele                           │
+   │  Controle de despesas do sítio       │
+   ├──────────────────────────────────────┤
+   │                                      │
+   │  Email:  [admin@vila-bele.com]      │
+   │  Senha:  [••••••••]                 │
+   │                                      │
+   │          [Entrar]                   │
+   │                                      │
+   │  Sem senha? Usar email e senha...   │
+   └──────────────────────────────────────┘
+
+✓ Se tudo OK → Será redirecionado para /painel
+✗ Se erro → Veja "TROUBLESHOOTING" abaixo
+
+
+┌────────────────────────────────────────────────────────────────────────────────┐
+│ PASSO 5: EXPLORAR O SISTEMA                                                    │
+└────────────────────────────────────────────────────────────────────────────────┘
+
+Após fazer login, você pode:
+
+1. VER PERFIL
+   → Clique no menu → Perfil (/perfil)
+   → Veja seus dados: email, nome, função
+   → Altere sua senha se desejar
+
+2. GERENCIAR USUÁRIOS (Admin)
+   → Clique no menu → Admin → Usuários (/admin/usuarios)
+   → Crie novos usuários
+   → Resete senhas de usuários existentes
+
+3. USAR O SISTEMA
+   → Painel: /painel
+   → Despesas: /despesas
+   → Reembolsos: /reembolsos
+   → Revisão: /revisao
+
+
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                             DADOS DO USUÁRIO ADMIN                             ║
+╠════════════════════════════════════════════════════════════════════════════════╣
+║ Email:           admin@vila-bele.com                                           ║
+║ Senha:           senha123                                                       ║
+║ Nome:            Administrador                                                  ║
+║ Função:          admin (acesso total)                                          ║
+║ Hash da Senha:   $2b$10$.8Rgnd2SqGD2PKYBsj9DC.aoFfbboJEe7poFj3bfLcw...       ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+
+┌────────────────────────────────────────────────────────────────────────────────┐
+│ ⚠️  TROUBLESHOOTING                                                             │
+└────────────────────────────────────────────────────────────────────────────────┘
+
+PROBLEMA: "UNIQUE constraint failed"
+SOLUÇÃO:
+  → O usuário admin já existe
+  → Execute apenas o SELECT para confirmar
+  → Você pode fazer login normalmente
+
+PROBLEMA: Login falha com "Email ou senha incorretos"
+SOLUÇÃO:
+  1. Volte ao Neon SQL Editor
+  2. Verifique o usuário:
+     SELECT email, role FROM users WHERE email = 'admin@vila-bele.com';
+  3. Se não aparecer nada, execute o INSERT novamente:
+     INSERT INTO users VALUES (...) [confira o setup-neon.sql]
+  4. Tente fazer login novamente
+
+PROBLEMA: Servidor responde 500 na página de login
+SOLUÇÃO:
+  1. Verifique o .env.local:
+     DATABASE_URL=postgresql://neondb_owner:npg_...
+  2. Confirme que a URL está correta
+  3. Teste a conexão ao Neon manualmente (via CLI):
+     psql "postgresql://neondb_owner:npg_...@ep-...neon.tech/neondb?sslmode=require"
+
+PROBLEMA: "Failed to connect to database"
+SOLUÇÃO:
+  1. Verifique internet (Neon é online)
+  2. Verifique DATABASE_URL em .env.local
+  3. No Neon, verifique se a tabela 'users' existe:
+     SELECT * FROM information_schema.tables WHERE table_name = 'users';
+
+
+┌────────────────────────────────────────────────────────────────────────────────┐
+│ 🔑 RESETAR SENHA (Se esquecer)                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+
+Se você esquecer a senha do admin:
+
+1. Volte ao Neon SQL Editor
+2. Execute:
+   UPDATE users
+   SET password = '$2b$10$.8Rgnd2SqGD2PKYBsj9DC.aoFfbboJEe7poFj3bfLcw/84/PMNsYu'
+   WHERE email = 'admin@vila-bele.com';
+
+3. Agora pode fazer login com: senha123 novamente
+
+
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                           PRÓXIMOS PASSOS                                      ║
+╠════════════════════════════════════════════════════════════════════════════════╣
+║ 1. ✓ Setup do banco de dados (você está aqui)                                 ║
+║ 2. → Fazer login como admin                                                    ║
+║ 3. → Explorar o painel                                                         ║
+║ 4. → Criar mais usuários via /admin/usuarios                                   ║
+║ 5. → Usar o sistema de despesas                                                ║
+║ 6. → Deploy em produção (Vercel)                                               ║
+╚════════════════════════════════════════════════════════════════════════════════╝
